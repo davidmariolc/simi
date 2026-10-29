@@ -1,1 +1,1 @@
-export function pdfFixture(blank?: boolean, protectedFile?: boolean): Buffer;
+export function pdfFixture(blank?: boolean, protectedFile?: boolean, outline?: boolean): Buffer;

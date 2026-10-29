@@ -87,6 +87,59 @@ test('PDF local: render, lectura, búsqueda y burbuja automática', async () => 
   } finally { await f.cleanup(); }
 });
 
+test('PDF: tabla de contenido completa, jerarquía, destinos y panel adaptable', async () => {
+  const f = await setup();
+  try {
+    await f.page.getByLabel('Archivo PDF local').setInputFiles({ name: 'outline.pdf', mimeType: 'application/pdf', buffer: pdfFixture(false, false, true) });
+    const panel = f.page.getByRole('complementary', { name: 'Tabla de contenido' });
+    const toggle = f.page.getByRole('button', { name: 'Tabla de contenido', exact: true });
+    await expect(panel).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(panel.getByText('I. Foundations', { exact: true })).toBeVisible();
+    await expect(panel.getByRole('button', { name: '1. Introduction', exact: true })).toHaveCount(0);
+    await panel.getByRole('button', { name: 'Expandir I. Foundations', exact: true }).click();
+    await panel.getByRole('button', { name: 'Expandir 1. Introduction', exact: true }).focus();
+    await f.page.keyboard.press('Enter');
+    await panel.getByRole('button', { name: '1.1 Getting started', exact: true }).click();
+    await expect(f.page.getByLabel('Página', { exact: true })).toHaveValue('2');
+    await panel.getByRole('button', { name: '1. Introduction', exact: true }).click();
+    await expect(f.page.getByLabel('Página', { exact: true })).toHaveValue('1');
+    const content = await f.page.locator('.pdf-container').boundingBox(), sidebar = await panel.boundingBox();
+    expect(content!.x).toBeGreaterThanOrEqual(sidebar!.x + sidebar!.width);
+    await expect(f.page.locator('.textLayer').first()).toContainText('Hello world');
+    await select(f.page); await activate(f.page);
+    await expect(f.page.getByTestId('translation-result')).toHaveText('ES: Hello world');
+    await panel.getByRole('button', { name: 'Contraer todo', exact: true }).click();
+    await expect(panel.getByRole('button', { name: '1.1 Getting started', exact: true })).toHaveCount(0);
+    await panel.getByRole('button', { name: 'Expandir todo', exact: true }).click();
+    await expect(panel.getByRole('button', { name: '1.1 Getting started', exact: true })).toBeVisible();
+    const appendix = panel.getByRole('button', { name: 'Appendix: final notes', exact: true });
+    await appendix.scrollIntoViewIfNeeded();
+    await expect(appendix).toBeInViewport();
+    await appendix.click();
+    await expect(f.page.getByLabel('Página', { exact: true })).toHaveValue('2');
+    await panel.evaluate(el => el.scrollTop = 0);
+    await f.page.screenshot({ path: 'test-results/pdf-outline-desktop.png' });
+    await panel.getByRole('button', { name: 'Cerrar tabla de contenido' }).click();
+    await expect(toggle).toBeFocused();
+    await expect(f.page.locator('.pdf-container')).toHaveCSS('left', '0px');
+    await toggle.click();
+    await f.page.setViewportSize({ width: 390, height: 844 });
+    await expect(panel).toBeInViewport();
+    const narrow = (await panel.boundingBox())!;
+    expect(narrow.x + narrow.width).toBeLessThanOrEqual(390);
+    await f.page.screenshot({ path: 'test-results/pdf-outline-narrow.png' });
+    await panel.getByRole('button', { name: 'Cerrar tabla de contenido' }).focus();
+    await f.page.keyboard.press('Escape');
+    await expect(panel).toBeHidden(); await expect(toggle).toBeFocused();
+    await upload(f.page);
+    await toggle.click();
+    await expect(panel).toContainText('no incluye una tabla de contenido integrada');
+    await expect(panel.getByText('I. Foundations', { exact: true })).toHaveCount(0);
+    await expect(panel.getByRole('button', { name: 'Appendix: final notes', exact: true })).toHaveCount(0);
+  } finally { await f.cleanup(); }
+});
+
 test('PDF: burbuja compacta, contenido largo y cierre visible en ventana estrecha', async () => {
   const f = await setup();
   try {

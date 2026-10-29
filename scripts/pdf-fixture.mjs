@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 // PDFs sintéticos sin documentos del usuario; xref y offsets reales.
-export function pdfFixture(blank = false, protectedFile = false) {
+export function pdfFixture(blank = false, protectedFile = false, outline = false) {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>',
@@ -14,6 +14,19 @@ export function pdfFixture(blank = false, protectedFile = false) {
   const second = blank || protectedFile ? '' : 'BT /F1 20 Tf 72 700 Td (Hello again on the second page.) Tj ET';
   objects[3] = `<< /Length ${first.length} >>\nstream\n${first}\nendstream`;
   objects[5] = `<< /Length ${second.length} >>\nstream\n${second}\nendstream`;
+  if (outline && !protectedFile) {
+    objects[0] = '<< /Type /Catalog /Pages 2 0 R /Outlines 8 0 R /Names << /Dests << /Names [(practice) [5 0 R /XYZ null null null]] >> >> >>';
+    objects.push(
+      '<< /Type /Outlines /First 9 0 R /Last 30 0 R /Count 22 >>',
+      '<< /Title (I. Foundations) /Parent 8 0 R /Next 12 0 R /First 10 0 R /Last 10 0 R /Count 2 >>',
+      '<< /Title (1. Introduction) /Parent 9 0 R /Dest [3 0 R /XYZ null null null] /First 11 0 R /Last 11 0 R /Count 1 >>',
+      '<< /Title (1.1 Getting started) /Parent 10 0 R /Dest (practice) >>',
+    );
+    for (let id = 12; id <= 30; id++) {
+      const title = id === 12 ? '2. Practice' : id === 30 ? 'Appendix: final notes' : `Chapter ${id - 9}: Reading and understanding long documents with Simi`;
+      objects.push(`<< /Title (${title}) /Parent 8 0 R /Prev ${id === 12 ? 9 : id - 1} 0 R${id < 30 ? ` /Next ${id + 1} 0 R` : ''} /Dest (practice) >>`);
+    }
+  }
   let protection = '';
   if (protectedFile) {
     // Standard Security Handler R=2 (RC4 40 bits), solo para el fixture de contraseña.

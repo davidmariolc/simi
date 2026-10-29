@@ -73,7 +73,9 @@ Para un PDF de internet abierto en una pestaña, abre el popup y pulsa **Abrir e
 
 Para un PDF de tu computadora, pulsa **Abrir PDF local** en el popup y elige el archivo en el visor. El archivo se lee en tu dispositivo, sin subirlo a un servicio externo y sin habilitar acceso a `file://`.
 
-El visor incluye páginas, zoom y búsqueda. Al seleccionar texto, aparece automáticamente la burbuja de traducción. Puede pedir la activación inicial del modelo. Un nuevo renderizado por zoom cierra la selección anterior; selecciona de nuevo. Las páginas escaneadas sin texto y los PDFs que requieren contraseña no ofrecen traducción por selección en esta versión.
+El visor incluye páginas, zoom, búsqueda y un panel de **Tabla de contenido**. Si el PDF incluye un índice integrado, el panel se abre automáticamente y muestra sus capítulos y subcapítulos; puedes desplegarlos individualmente, expandir o contraer todo y pulsar un título para ir a su ubicación. El botón de la barra permite mostrar u ocultar el panel. Si el archivo no incluye ese índice, Simi lo indica; no genera uno a partir del texto.
+
+Al seleccionar texto, aparece automáticamente la burbuja de traducción. Puede pedir la activación inicial del modelo. Un nuevo renderizado por zoom cierra la selección anterior; selecciona de nuevo. Las páginas escaneadas sin texto y los PDFs que requieren contraseña no ofrecen traducción por selección en esta versión.
 
 Consulta [la compatibilidad del visor PDF](docs/pdf-compatibility.md). Después de actualizar la extensión, recárgala en `chrome://extensions`. No necesitas cambiar tu visor PDF predeterminado.
 
