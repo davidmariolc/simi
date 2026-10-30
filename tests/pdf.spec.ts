@@ -2,9 +2,9 @@ import { test, expect, chromium, type Page } from '@playwright/test';
 import { mkdtemp, rm, cp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { pdfFixture } from '../scripts/pdf-fixture.mjs';
+import { pdfFixture, pdfOutlineFixture } from '../scripts/pdf-fixture.mjs';
 
-async function setup(origins: string[] = []) {
+async function setup(origins: string[] = [], delayOutline = false) {
   const profile = await mkdtemp(join(tmpdir(), 'simi-pdf-test-'));
   const context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true,
     ignoreDefaultArgs: ['--disable-extensions'], args: ['--enable-unsafe-extension-debugging', '--enable-caret-browsing'], viewport: { width: 1100, height: 800 } });
@@ -36,6 +36,21 @@ async function setup(origins: string[] = []) {
     } });
   });
   page.on('pageerror', error => console.log('PDF page error:', error.message));
+  if (delayOutline) await page.addInitScript(() => {
+    // Delay the real PDF.js request only in this browser test, never in the package.
+    const stopped = new WeakSet<Worker>(), post = Worker.prototype.postMessage, terminate = Worker.prototype.terminate;
+    Object.assign(globalThis, { __outlineDelay: { pending: false, released: false } });
+    Worker.prototype.postMessage = function(message, options) {
+      if (message?.action === 'GetDestination') {
+        (globalThis as any).__outlineDelay.pending = true;
+        setTimeout(() => {
+          if (!stopped.has(this)) post.call(this, message, options as StructuredSerializeOptions);
+          (globalThis as any).__outlineDelay.released = true;
+        }, 600);
+      } else post.call(this, message, options as StructuredSerializeOptions);
+    };
+    Worker.prototype.terminate = function() { stopped.add(this); terminate.call(this); };
+  });
   await page.goto(`chrome-extension://${id}/pdf.html`);
   return { context, id, page, cleanup: async () => { await context.close(); await rm(profile, { recursive: true, force: true }); } };
 }
@@ -57,6 +72,17 @@ async function activate(page: Page) {
   await button.or(page.getByTestId('translation-result')).waitFor();
   if (await button.isVisible()) await button.click();
   await expect(page.getByTestId('translation-result')).toBeVisible();
+}
+async function scrollPdfTo(page: Page, pageNumber: number, top: number) {
+  await page.locator('.pdf-container').evaluate((container, { pageNumber, top }) => {
+    const target = container.querySelector<HTMLElement>(`.page[data-page-number="${pageNumber}"]`)!;
+    container.scrollTop += target.getBoundingClientRect().top - container.getBoundingClientRect().top + top * target.clientHeight / 792;
+  }, { pageNumber, top });
+}
+
+async function uploadOutline(page: Page) {
+  await page.getByLabel('Archivo PDF local').setInputFiles({ name: 'reading-position.pdf', mimeType: 'application/pdf', buffer: pdfOutlineFixture() });
+  await expect(page.getByLabel('Estado del documento')).toContainText('Selecciona texto');
 }
 
 test('PDF local: render, lectura, búsqueda y burbuja automática', async () => {
@@ -96,6 +122,8 @@ test('PDF: tabla de contenido completa, jerarquía, destinos y panel adaptable',
     await expect(panel).toBeVisible();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(panel.getByText('I. Foundations', { exact: true })).toBeVisible();
+    await expect(panel.getByRole('button', { name: '1. Introduction', exact: true })).toHaveAttribute('aria-current', 'location');
+    await panel.getByRole('button', { name: 'Contraer I. Foundations', exact: true }).click();
     await expect(panel.getByRole('button', { name: '1. Introduction', exact: true })).toHaveCount(0);
     await panel.getByRole('button', { name: 'Expandir I. Foundations', exact: true }).click();
     await panel.getByRole('button', { name: 'Expandir 1. Introduction', exact: true }).focus();
@@ -137,6 +165,101 @@ test('PDF: tabla de contenido completa, jerarquía, destinos y panel adaptable',
     await expect(panel).toContainText('no incluye una tabla de contenido integrada');
     await expect(panel.getByText('I. Foundations', { exact: true })).toHaveCount(0);
     await expect(panel.getByRole('button', { name: 'Appendix: final notes', exact: true })).toHaveCount(0);
+  } finally { await f.cleanup(); }
+});
+
+test('PDF: sección actual al leer, navegar, buscar y cambiar zoom', async () => {
+  const f = await setup();
+  try {
+    await uploadOutline(f.page);
+    const panel = f.page.getByRole('complementary', { name: 'Tabla de contenido' });
+    const current = panel.locator('[aria-current="location"]');
+    await expect(current).toHaveText('1. Foundations');
+    await f.page.locator('.pdf-container').focus();
+    await scrollPdfTo(f.page, 1, 120);
+    await expect(current).toHaveText('1.1 First steps');
+    await expect(current).toHaveCount(1);
+    await expect(f.page.locator('.pdf-container')).toBeFocused();
+    await f.page.keyboard.press('PageDown');
+    await expect(current).toHaveText('1.2 Reading further');
+    await expect(panel.getByRole('button', { name: '1.1 First steps', exact: true })).not.toHaveAttribute('aria-current');
+    await f.page.getByLabel('Página', { exact: true }).fill('1');
+    await expect(current).toHaveText('1. Foundations');
+    await f.page.getByRole('button', { name: 'Página siguiente' }).click();
+    await expect(current).toHaveText('2. Practice');
+    await f.page.getByLabel('Página', { exact: true }).fill('1');
+    await expect(current).toHaveText('1. Foundations');
+    await f.page.getByLabel('Buscar en PDF').fill('Reading further');
+    await expect(f.page.getByLabel('Resultados de búsqueda')).toContainText('de 1');
+    await expect(current).toHaveText('1.2 Reading further');
+    await f.page.getByLabel('Buscar en PDF').fill('');
+    await f.page.getByRole('button', { name: 'Aumentar zoom' }).click();
+    await expect(current).toHaveText('1.2 Reading further');
+    await panel.getByRole('button', { name: '1.1 First steps', exact: true }).click();
+    await expect(current).toHaveText('1.1 First steps');
+    await expect(current).toHaveCSS('font-weight', '650');
+  } finally { await f.cleanup(); }
+});
+
+test('PDF: revelar sección actual respeta contracción, cierre, foco y posición del PDF', async () => {
+  const f = await setup();
+  try {
+    await uploadOutline(f.page);
+    const panel = f.page.getByRole('complementary', { name: 'Tabla de contenido' });
+    const current = panel.locator('[aria-current="location"]');
+    const toggle = f.page.getByRole('button', { name: 'Tabla de contenido', exact: true });
+    await scrollPdfTo(f.page, 1, 120);
+    await expect(current).toHaveText('1.1 First steps');
+    await panel.getByRole('button', { name: 'Contraer 1. Foundations', exact: true }).click();
+    await scrollPdfTo(f.page, 1, 150);
+    await expect(panel.getByRole('button', { name: 'Expandir 1. Foundations', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(panel.getByRole('button', { name: '1.1 First steps', exact: true })).toHaveCount(0);
+    await f.page.locator('.pdf-container').focus();
+    await scrollPdfTo(f.page, 1, 450);
+    await expect(current).toHaveText('1.2 Reading further');
+    await expect(current).toBeInViewport();
+    await expect(f.page.locator('.pdf-container')).toBeFocused();
+    await f.page.screenshot({ path: 'test-results/pdf-outline-current-section.png' });
+    await toggle.click();
+    await expect(panel).toBeHidden();
+    await scrollPdfTo(f.page, 4, 0);
+    await expect(f.page.getByLabel('Página', { exact: true })).toHaveValue('4');
+    await expect(panel).toBeHidden();
+    const before = await f.page.locator('.pdf-container').evaluate(el => el.scrollTop);
+    await toggle.click();
+    await expect(current).toHaveText('Final chapter');
+    await expect(current).toBeInViewport();
+    await expect(toggle).toBeFocused();
+    expect(await f.page.locator('.pdf-container').evaluate(el => el.scrollTop)).toBeCloseTo(before, 0);
+    expect(await panel.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    await panel.evaluate(el => el.scrollTop = 0);
+    await scrollPdfTo(f.page, 4, 20);
+    await expect(current).toHaveText('Final chapter');
+    expect(await panel.evaluate(el => el.scrollTop)).toBe(0);
+    await f.page.setViewportSize({ width: 390, height: 844 });
+    await toggle.click(); await toggle.click();
+    await expect(current).toBeInViewport();
+    await expect(toggle).toBeFocused();
+    await f.page.screenshot({ path: 'test-results/pdf-outline-current-section-narrow.png' });
+    await upload(f.page);
+    await expect(f.page.locator('[aria-current="location"]')).toHaveCount(0);
+  } finally { await f.cleanup(); }
+});
+
+test('PDF: sustituir el documento durante resolución demorada del índice', async () => {
+  const f = await setup([], true);
+  const errors: string[] = [];
+  f.page.on('pageerror', error => errors.push(error.message));
+  try {
+    await uploadOutline(f.page);
+    await expect.poll(() => f.page.evaluate(() => (globalThis as any).__outlineDelay.pending)).toBe(true);
+    await upload(f.page);
+    await expect.poll(() => f.page.evaluate(() => (globalThis as any).__outlineDelay.released)).toBe(true);
+    await expect(f.page.locator('[aria-current="location"]')).toHaveCount(0);
+    await f.page.getByRole('button', { name: 'Tabla de contenido', exact: true }).click();
+    await expect(f.page.getByRole('complementary', { name: 'Tabla de contenido' })).toContainText('no incluye una tabla de contenido integrada');
+    await expect(f.page.getByText('1. Foundations', { exact: true })).toHaveCount(0);
+    expect(errors).toEqual([]);
   } finally { await f.cleanup(); }
 });
 

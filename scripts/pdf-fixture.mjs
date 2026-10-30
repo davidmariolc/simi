@@ -46,6 +46,42 @@ export function pdfFixture(blank = false, protectedFile = false, outline = false
     objects.push(`<< /Filter /Standard /V 1 /R 2 /Length 40 /O <${owner.toString('hex')}> /U <${user.toString('hex')}> /P -4 >>`);
     protection = ` /Encrypt 8 0 R /ID [<${id.toString('hex')}> <${id.toString('hex')}>]`;
   }
+  return serializePdf(objects, protection);
+}
+
+export function pdfOutlineFixture() {
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R /Outlines 14 0 R /Names << /Dests << /Names [(further) [3 0 R /XYZ 0 400 null]] >> >> >>',
+    '<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R 9 0 R 11 0 R] /Count 5 >>',
+  ];
+  const texts = [
+    'BT /F1 20 Tf 72 650 Td (Hello world) Tj 0 -40 Td (Good morning) Tj 0 -310 Td (Reading further) Tj ET',
+    'BT /F1 20 Tf 72 700 Td (Practice chapter) Tj ET',
+    'BT /F1 20 Tf 72 700 Td (More chapters) Tj ET',
+    'BT /F1 20 Tf 72 700 Td (Final chapter text) Tj ET',
+    'BT /F1 20 Tf 72 700 Td (End of PDF) Tj ET',
+  ];
+  for (let page = 0; page < 5; page++) objects.push(
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 13 0 R >> >> /Contents ${4 + page * 2} 0 R >>`,
+    `<< /Length ${texts[page].length} >>\nstream\n${texts[page]}\nendstream`,
+  );
+  objects.push(
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Outlines /First 15 0 R /Last 37 0 R /Count 23 >>',
+    '<< /Title (1. Foundations) /Parent 14 0 R /Next 18 0 R /Dest [3 0 R /XYZ 0 792 null] /First 16 0 R /Last 17 0 R /Count 2 >>',
+    '<< /Title (1.1 First steps) /Parent 15 0 R /Next 17 0 R /Dest [3 0 R /XYZ 0 700 null] >>',
+    '<< /Title (1.2 Reading further) /Parent 15 0 R /Prev 16 0 R /Dest (further) >>',
+  );
+  for (let id = 18; id <= 37; id++) {
+    const title = id === 18 ? '2. Practice' : id === 37 ? 'Final chapter' : `Chapter ${id - 15}: Exploring a longer document`;
+    const page = id === 37 ? 9 : id < 28 ? 5 : 7;
+    const top = id === 37 ? 792 : 792 - ((id - 18) % 10) * 60;
+    objects.push(`<< /Title (${title}) /Parent 14 0 R /Prev ${id === 18 ? 15 : id - 1} 0 R${id < 37 ? ` /Next ${id + 1} 0 R` : ''} /Dest [${page} 0 R /XYZ 0 ${top} null] >>`);
+  }
+  return serializePdf(objects);
+}
+
+function serializePdf(objects, protection = '') {
   let content = '%PDF-1.7\n';
   const offsets = [0];
   for (let i = 0; i < objects.length; i++) { offsets.push(Buffer.byteLength(content)); content += `${i + 1} 0 obj\n${objects[i]}\nendobj\n`; }

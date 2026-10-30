@@ -43,6 +43,7 @@ button:disabled { opacity:.45; cursor:default; }
 .pdf-outline-toggle, .pdf-outline-spacer { display:flex; align-items:center; justify-content:center; width:28px; height:36px; flex-shrink:0; }
 .pdf-outline-title { display:block; min-width:0; padding:8px 6px; text-align:left; line-height:1.5; overflow-wrap:anywhere; }
 button.pdf-outline-title { flex:1; }
+.pdf-outline-title[aria-current="location"] { background:var(--simi-soft); color:var(--simi-action); box-shadow:inset 3px 0 var(--simi-action); border-radius:6px; font-weight:650; }
 @media (max-width:700px) {
   .pdf-workspace-with-outline .pdf-container { left:0; }
   .pdf-outline { width:min(320px,100%); box-shadow:4px 0 16px #15254226; }

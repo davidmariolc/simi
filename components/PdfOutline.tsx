@@ -1,17 +1,34 @@
-import { useId, useState } from 'react';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
-
-type NativeOutlineItem = Awaited<ReturnType<PDFDocumentProxy['getOutline']>>[number];
-export type PdfOutlineItem = Omit<NativeOutlineItem, 'items'> & { items: PdfOutlineItem[] };
+import { useId, useLayoutEffect, useState, type RefObject } from 'react';
+import type { OutlineEntry, PdfOutlineItem } from '../lib/pdf-outline';
 
 type Props = {
   items: PdfOutlineItem[];
+  active: OutlineEntry | undefined;
+  open: boolean;
+  panel: RefObject<HTMLElement | null>;
   navigate: (destination: NonNullable<PdfOutlineItem['dest']>) => void;
 };
 
-export function PdfOutline({ items, navigate }: Props) {
+export function PdfOutline({ items, active, open: panelOpen, panel, navigate }: Props) {
   const id = useId();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+
+  useLayoutEffect(() => {
+    if (!panelOpen || !active) return;
+    setExpanded(previous => {
+      if (active.ancestors.every(path => previous.has(path))) return previous;
+      return new Set([...previous, ...active.ancestors]);
+    });
+    const frame = requestAnimationFrame(() => {
+      const container = panel.current;
+      const entry = container?.querySelector<HTMLElement>(`[data-outline-path="${active.path}"]`);
+      if (!container || !entry) return;
+      const bounds = container.getBoundingClientRect(), target = entry.getBoundingClientRect();
+      if (target.top < bounds.top || target.height > container.clientHeight) container.scrollTop += target.top - bounds.top;
+      else if (target.bottom > bounds.bottom) container.scrollTop += target.bottom - bounds.bottom;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [active, panelOpen, panel]);
 
   function expandAll() {
     const next = new Set<string>();
@@ -29,6 +46,7 @@ export function PdfOutline({ items, navigate }: Props) {
       {entries.map((item, index) => {
         const path = `${parent}-${index}`, open = expanded.has(path);
         const title = item.title.trim() || 'Sin título';
+        const current = active?.path === path ? 'location' : undefined, destination = item.dest;
         return <li key={path}>
           <div className="pdf-outline-row">
             {item.items.length > 0 ? <button type="button" className="pdf-outline-toggle"
@@ -40,8 +58,8 @@ export function PdfOutline({ items, navigate }: Props) {
               })}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ transform: open ? 'rotate(90deg)' : undefined }}><path d="m6 3 5 5-5 5" stroke="currentColor" strokeWidth="1.8" /></svg>
             </button> : <span className="pdf-outline-spacer" />}
-            {item.dest ? <button type="button" className="pdf-outline-title" onClick={() => navigate(item.dest!)}>{title}</button>
-              : <span className="pdf-outline-title">{title}</span>}
+            {destination ? <button type="button" className="pdf-outline-title" data-outline-path={path} aria-current={current} onClick={() => navigate(destination)}>{title}</button>
+              : <span className="pdf-outline-title" data-outline-path={path} aria-current={current}>{title}</span>}
           </div>
           {item.items.length > 0 && <div id={`${id}${path}`} hidden={!open}>{open && renderItems(item.items, path)}</div>}
         </li>;

@@ -6,7 +6,8 @@ import { EventBus, PDFViewer, PDFLinkService, PDFFindController } from 'pdfjs-di
 import { mountPdfSelection } from '../../lib/pdf-selection';
 import { originPermission, pdfChannel, remotePdfUrl } from '../../lib/pdf-session';
 import { BrandIcon } from '../../components/BrandIcon';
-import { PdfOutline, type PdfOutlineItem } from '../../components/PdfOutline';
+import { PdfOutline } from '../../components/PdfOutline';
+import { currentPdfOutline, resolvePdfOutline, type OutlineEntry, type OutlineIndex, type PdfOutlineItem, type PdfReadingPosition } from '../../lib/pdf-outline';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -21,6 +22,7 @@ export function App() {
   const container = useRef<HTMLDivElement>(null), pages = useRef<HTMLDivElement>(null), bubble = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null), engine = useRef<Engine | undefined>(undefined);
   const workspace = useRef<HTMLDivElement>(null), outlineToggle = useRef<HTMLButtonElement>(null);
+  const outlinePanel = useRef<HTMLElement>(null);
   const [status, setStatus] = useState('Abre un PDF local o utiliza «Abrir en Simi» desde la pestaña de un PDF de internet.');
   const [busy, setBusy] = useState(false), [ready, setReady] = useState(false);
   const [number, setNumber] = useState(1), [total, setTotal] = useState(0), [zoom, setZoom] = useState(100);
@@ -29,10 +31,17 @@ export function App() {
   const [noText, setNoText] = useState(false), [title, setTitle] = useState('Visor PDF');
   const [outline, setOutline] = useState<PdfOutlineItem[] | undefined>();
   const [outlineOpen, setOutlineOpen] = useState(false), [outlineError, setOutlineError] = useState(false);
+  const [currentSection, setCurrentSection] = useState<OutlineEntry>();
 
   useEffect(() => {
     let generation = 0, disposed = false;
     let task: pdfjs.PDFDocumentLoadingTask | undefined, fetchAbort: AbortController | undefined;
+    let outlineIndex: OutlineIndex = { entries: [], viewports: new Map() };
+    let readingPosition: PdfReadingPosition | undefined, activePath: string | undefined;
+    const syncOutline = () => {
+      const entry = readingPosition ? currentPdfOutline(outlineIndex, readingPosition) : undefined;
+      if (entry?.path !== activePath) { activePath = entry?.path; setCurrentSection(entry); }
+    };
     const bus = new EventBus();
     const links = new PDFLinkService({ eventBus: bus, externalLinkTarget: 2 });
     const find = new PDFFindController({ eventBus: bus, linkService: links });
@@ -53,6 +62,10 @@ export function App() {
     bus.on('pagesinit', () => { viewer.currentScale = 1; });
     bus.on('pagechanging', ({ pageNumber }: { pageNumber: number }) => { setNumber(pageNumber); setNoText(pageText.get(pageNumber) === false); });
     bus.on('scalechanging', ({ scale }: { scale: number }) => setZoom(Math.round(scale * 100)));
+    bus.on('updateviewarea', ({ location }: { location: PdfReadingPosition }) => {
+      if (disposed) return;
+      readingPosition = location; syncOutline();
+    });
     bus.on('textlayerrendered', ({ pageNumber }: { pageNumber: number }) => {
       const doc = viewer.pdfDocument, current = generation;
       if (!doc) return;
@@ -72,6 +85,7 @@ export function App() {
       const previous = task; task = undefined; void previous?.destroy();
       pageText.clear(); setReady(false); setNoText(false); setBusy(true); setPermission(undefined); setMatches(''); setQuery('');
       setOutline(undefined); setOutlineError(false);
+      outlineIndex = { entries: [], viewports: new Map() }; readingPosition = undefined; activePath = undefined; setCurrentSection(undefined);
       setStatus('Cargando PDF…'); setTotal(0); setNumber(1);
       setRemote(typeof source === 'string' ? source : undefined);
       setTitle(typeof source === 'string' ? 'PDF de internet' : source.name);
@@ -105,10 +119,13 @@ export function App() {
         if (disposed || current !== generation) { await loading.destroy(); return; }
         viewer.setDocument(document); links.setDocument(document); find.setDocument(document);
         setTotal(document.numPages); setReady(true); setStatus('Selecciona texto en inglés para traducirlo.');
-        void document.getOutline().then(items => {
+        void document.getOutline().then(async items => {
           if (disposed || current !== generation) return;
           setOutline(items ?? []);
           setOutlineOpen(Boolean(items?.length));
+          const index = await resolvePdfOutline(items ?? [], document, () => !disposed && current === generation);
+          if (disposed || current !== generation) return;
+          outlineIndex = index; syncOutline();
         }).catch(() => {
           if (disposed || current !== generation) return;
           setOutline([]); setOutlineError(true);
@@ -195,7 +212,7 @@ export function App() {
       {remote && !busy && !ready && <><button onClick={() => { void engine.current?.load(remote); }}>Reintentar carga</button><a href={remote} target="_blank" rel="noreferrer">Abrir original</a></>}
     </div>
     <div ref={workspace} className={`pdf-workspace${outlineOpen ? ' pdf-workspace-with-outline' : ''}`}>
-      <aside id="pdf-outline" className="pdf-outline" aria-label="Tabla de contenido" hidden={!outlineOpen} onKeyDown={event => {
+      <aside ref={outlinePanel} id="pdf-outline" className="pdf-outline" aria-label="Tabla de contenido" hidden={!outlineOpen} onKeyDown={event => {
         if (event.key === 'Escape') { setOutlineOpen(false); outlineToggle.current?.focus(); }
       }}>
         <div className="pdf-outline-header"><h2>Tabla de contenido</h2><button type="button" aria-label="Cerrar tabla de contenido" onClick={() => { setOutlineOpen(false); outlineToggle.current?.focus(); }}>×</button></div>
@@ -203,7 +220,7 @@ export function App() {
           : outline === undefined ? <p role="status">Cargando tabla de contenido…</p>
           : outlineError ? <p role="status">No se pudo leer la tabla de contenido de este PDF.</p>
           : outline.length === 0 ? <p>Este PDF no incluye una tabla de contenido integrada.</p>
-          : <PdfOutline items={outline} navigate={destination => { void engine.current?.navigate(destination); }} />}
+          : <PdfOutline items={outline} active={currentSection} open={outlineOpen} panel={outlinePanel} navigate={destination => { void engine.current?.navigate(destination); }} />}
       </aside>
       <div ref={container} className="pdf-container" tabIndex={0} aria-label="Documento PDF"><div ref={pages} className="pdfViewer" /></div>
     </div>

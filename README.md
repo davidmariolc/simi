@@ -75,6 +75,10 @@ Para un PDF de tu computadora, pulsa **Abrir PDF local** en el popup y elige el 
 
 El visor incluye páginas, zoom, búsqueda y un panel de **Tabla de contenido**. Si el PDF incluye un índice integrado, el panel se abre automáticamente y muestra sus capítulos y subcapítulos; puedes desplegarlos individualmente, expandir o contraer todo y pulsar un título para ir a su ubicación. El botón de la barra permite mostrar u ocultar el panel. Si el archivo no incluye ese índice, Simi lo indica; no genera uno a partir del texto.
 
+El índice resalta la sección correspondiente al inicio visible del documento mientras navegas con scroll, teclado, páginas, búsqueda o sus títulos. También distingue subcapítulos dentro de una misma página cuando sus marcadores tienen posiciones diferentes. Al cambiar de sección, despliega sus antecesores y desplaza únicamente el panel si hace falta mostrar la entrada. Si cierras el panel, permanece cerrado y muestra tu ubicación vigente al abrirlo de nuevo. Puedes contraer las ramas manualmente; se respetan hasta el próximo cambio de sección o reapertura.
+
+El seguimiento depende de los marcadores del PDF: los que solo indican una página se consideran su inicio; los destinos coincidentes se resuelven de forma estable por profundidad y orden del índice. Antes del primer destino no hay una sección marcada. Los marcadores inválidos o externos no impiden leer el documento. La ubicación se mantiene solo durante la sesión del documento, sin guardar historial de lectura.
+
 Al seleccionar texto, aparece automáticamente la burbuja de traducción. Puede pedir la activación inicial del modelo. Un nuevo renderizado por zoom cierra la selección anterior; selecciona de nuevo. Las páginas escaneadas sin texto y los PDFs que requieren contraseña no ofrecen traducción por selección en esta versión.
 
 Consulta [la compatibilidad del visor PDF](docs/pdf-compatibility.md). Después de actualizar la extensión, recárgala en `chrome://extensions`. No necesitas cambiar tu visor PDF predeterminado.
