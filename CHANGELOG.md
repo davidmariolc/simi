@@ -4,6 +4,7 @@ Las notas describen entregas de Simi. Un bloque preparado no implica que la Rele
 
 ## [Pendiente]
 
+- Tabla de contenido más compacta, con texto, sangrías, espacios y controles reducidos.
 - El índice del PDF sigue la posición de lectura, resalta la sección actual y revela sus antecesores al navegar. Respeta el cierre y la contracción manual del panel sin guardar un historial de lectura.
 
 ## [0.2.0] - 2026-10-29

@@ -224,6 +224,8 @@ test('PDF: revelar sección actual respeta contracción, cierre, foco y posició
     await expect(current).toBeInViewport();
     await expect(f.page.locator('.pdf-container')).toBeFocused();
     await f.page.screenshot({ path: 'test-results/pdf-outline-current-section.png' });
+    // Keep the overflow scenario even when the compact outline fits in a taller window.
+    await f.page.setViewportSize({ width: 1100, height: 600 });
     await toggle.click();
     await expect(panel).toBeHidden();
     await scrollPdfTo(f.page, 4, 0);
