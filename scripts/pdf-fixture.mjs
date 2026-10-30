@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 // PDFs sintéticos sin documentos del usuario; xref y offsets reales.
-export function pdfFixture(blank = false, protectedFile = false) {
+export function pdfFixture(blank = false, protectedFile = false, outline = false) {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>',
@@ -14,6 +14,19 @@ export function pdfFixture(blank = false, protectedFile = false) {
   const second = blank || protectedFile ? '' : 'BT /F1 20 Tf 72 700 Td (Hello again on the second page.) Tj ET';
   objects[3] = `<< /Length ${first.length} >>\nstream\n${first}\nendstream`;
   objects[5] = `<< /Length ${second.length} >>\nstream\n${second}\nendstream`;
+  if (outline && !protectedFile) {
+    objects[0] = '<< /Type /Catalog /Pages 2 0 R /Outlines 8 0 R /Names << /Dests << /Names [(practice) [5 0 R /XYZ null null null]] >> >> >>';
+    objects.push(
+      '<< /Type /Outlines /First 9 0 R /Last 30 0 R /Count 22 >>',
+      '<< /Title (I. Foundations) /Parent 8 0 R /Next 12 0 R /First 10 0 R /Last 10 0 R /Count 2 >>',
+      '<< /Title (1. Introduction) /Parent 9 0 R /Dest [3 0 R /XYZ null null null] /First 11 0 R /Last 11 0 R /Count 1 >>',
+      '<< /Title (1.1 Getting started) /Parent 10 0 R /Dest (practice) >>',
+    );
+    for (let id = 12; id <= 30; id++) {
+      const title = id === 12 ? '2. Practice' : id === 30 ? 'Appendix: final notes' : `Chapter ${id - 9}: Reading and understanding long documents with Simi`;
+      objects.push(`<< /Title (${title}) /Parent 8 0 R /Prev ${id === 12 ? 9 : id - 1} 0 R${id < 30 ? ` /Next ${id + 1} 0 R` : ''} /Dest (practice) >>`);
+    }
+  }
   let protection = '';
   if (protectedFile) {
     // Standard Security Handler R=2 (RC4 40 bits), solo para el fixture de contraseña.
@@ -33,6 +46,42 @@ export function pdfFixture(blank = false, protectedFile = false) {
     objects.push(`<< /Filter /Standard /V 1 /R 2 /Length 40 /O <${owner.toString('hex')}> /U <${user.toString('hex')}> /P -4 >>`);
     protection = ` /Encrypt 8 0 R /ID [<${id.toString('hex')}> <${id.toString('hex')}>]`;
   }
+  return serializePdf(objects, protection);
+}
+
+export function pdfOutlineFixture() {
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R /Outlines 14 0 R /Names << /Dests << /Names [(further) [3 0 R /XYZ 0 400 null]] >> >> >>',
+    '<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R 9 0 R 11 0 R] /Count 5 >>',
+  ];
+  const texts = [
+    'BT /F1 20 Tf 72 650 Td (Hello world) Tj 0 -40 Td (Good morning) Tj 0 -310 Td (Reading further) Tj ET',
+    'BT /F1 20 Tf 72 700 Td (Practice chapter) Tj ET',
+    'BT /F1 20 Tf 72 700 Td (More chapters) Tj ET',
+    'BT /F1 20 Tf 72 700 Td (Final chapter text) Tj ET',
+    'BT /F1 20 Tf 72 700 Td (End of PDF) Tj ET',
+  ];
+  for (let page = 0; page < 5; page++) objects.push(
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 13 0 R >> >> /Contents ${4 + page * 2} 0 R >>`,
+    `<< /Length ${texts[page].length} >>\nstream\n${texts[page]}\nendstream`,
+  );
+  objects.push(
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Outlines /First 15 0 R /Last 37 0 R /Count 23 >>',
+    '<< /Title (1. Foundations) /Parent 14 0 R /Next 18 0 R /Dest [3 0 R /XYZ 0 792 null] /First 16 0 R /Last 17 0 R /Count 2 >>',
+    '<< /Title (1.1 First steps) /Parent 15 0 R /Next 17 0 R /Dest [3 0 R /XYZ 0 700 null] >>',
+    '<< /Title (1.2 Reading further) /Parent 15 0 R /Prev 16 0 R /Dest (further) >>',
+  );
+  for (let id = 18; id <= 37; id++) {
+    const title = id === 18 ? '2. Practice' : id === 37 ? 'Final chapter' : `Chapter ${id - 15}: Exploring a longer document`;
+    const page = id === 37 ? 9 : id < 28 ? 5 : 7;
+    const top = id === 37 ? 792 : 792 - ((id - 18) % 10) * 60;
+    objects.push(`<< /Title (${title}) /Parent 14 0 R /Prev ${id === 18 ? 15 : id - 1} 0 R${id < 37 ? ` /Next ${id + 1} 0 R` : ''} /Dest [${page} 0 R /XYZ 0 ${top} null] >>`);
+  }
+  return serializePdf(objects);
+}
+
+function serializePdf(objects, protection = '') {
   let content = '%PDF-1.7\n';
   const offsets = [0];
   for (let i = 0; i < objects.length; i++) { offsets.push(Buffer.byteLength(content)); content += `${i + 1} 0 obj\n${objects[i]}\nendobj\n`; }
