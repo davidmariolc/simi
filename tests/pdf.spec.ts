@@ -183,7 +183,11 @@ test('PDF: sección actual al leer, navegar, buscar y cambiar zoom', async () =>
     await f.page.keyboard.press('PageDown');
     await expect(current).toHaveText('1.2 Reading further');
     await expect(panel.getByRole('button', { name: '1.1 First steps', exact: true })).not.toHaveAttribute('aria-current');
-    await f.page.getByLabel('Página', { exact: true }).fill('1');
+    await scrollPdfTo(f.page, 1, 450);
+    await expect(f.page.getByLabel('Página', { exact: true })).toHaveValue('1');
+    await expect(current).toHaveText('1.2 Reading further');
+    // PageDown can leave page 1 current; filling the unchanged value does not navigate.
+    await panel.getByRole('button', { name: '1. Foundations', exact: true }).click();
     await expect(current).toHaveText('1. Foundations');
     await f.page.getByRole('button', { name: 'Página siguiente' }).click();
     await expect(current).toHaveText('2. Practice');
