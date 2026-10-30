@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-12T22:07:09.346Z",
+  "chrome": "154.0.8037.98",
+  "nativeTranslation": true,
+  "screenshots": [
+    {
+      "file": "01-web-1280x800.png",
+      "translation": "Los pequeños pasos hacen una gran diferencia.",
+      "selection": "Small steps make a big difference."
+    },
+    {
+      "file": "02-pdf-1280x800.png",
+      "translation": "Extracto",
+      "selection": "Abstract"
+    },
+    {
+      "file": "03-github-1280x800.png",
+      "translation": "Bokeh simplifica la creación de todo tipo de gráficos de barras apilados o anidados, y tratar con datos categóricos en general.",
+      "selection": "Bokeh makes it simple to create all sorts of stacked or nested bar charts, and to deal with categorical data in general."
+    }
+  ],
+  "extensionVersion": "0.1.0"
+}

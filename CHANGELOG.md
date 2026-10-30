@@ -4,6 +4,10 @@ Las notas describen entregas de Simi. Un bloque preparado no implica que la Rele
 
 ## [Pendiente]
 
+## [0.2.0] - 2026-10-29
+
+### Funcionalidades
+
 - Tabla de contenido del PDF en un panel lateral, con capítulos y subcapítulos desplegables, controles para expandir o contraer todo y navegación a sus destinos.
 
 ## [0.1.0]
