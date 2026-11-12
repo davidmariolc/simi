@@ -29,7 +29,7 @@
 <main>
   <a class="brand" href="https://github.com/DavidMarioLC/simi">Simi</a>
   <h1>Política de privacidad</h1>
-  <p class="date">Última actualización: <time datetime="2026-10-12">12 de octubre de 2026</time> · Simi 0.1.0</p>
+  <p class="date">Última actualización: <time datetime="2026-11-12">12 de noviembre de 2026</time></p>
   <div class="summary"><p>Simi traduce el texto que seleccionas del inglés al español mediante los modelos locales de Chrome. La extensión no envía tus selecciones a un servidor de traducción, no guarda un historial de traducciones y no incorpora publicidad ni herramientas de analítica.</p></div>
 
   <h2>1. Responsable y alcance</h2>
@@ -41,6 +41,7 @@
     <li><strong>Notebooks de GitHub.</strong> La selección y su posición se comunican entre el visor incrustado y la página de GitHub mediante mensajes internos de la extensión. Este intercambio no envía la selección a un servidor de Simi.</li>
     <li><strong>Preferencia de activación.</strong> Simi guarda localmente, mediante el almacenamiento de la extensión en Chrome, si la traducción automática está activada o desactivada. No sincroniza esta preferencia mediante su propio servicio.</li>
     <li><strong>Documentos PDF.</strong> El visor lee el archivo local que eliges o descarga el PDF de la dirección que abres. Procesa el contenido, el nombre del archivo y las búsquedas dentro del documento durante su uso. No sube los archivos locales a un servidor ni crea una biblioteca persistente de documentos.</li>
+    <li><strong>Progreso de lectura de PDF.</strong> Simi guarda en el perfil de Chrome solo una huella calculada a partir del contenido del PDF y el último número de página. Usa ese dato para retomar la lectura al abrir el mismo documento en ese perfil.</li>
     <li><strong>Dirección de la pestaña.</strong> Al pulsar «Abrir en Simi», la extensión consulta la URL de la pestaña activa para abrir el documento en su visor. La dirección se transmite internamente mediante una sesión temporal; no se guarda como historial de navegación.</li>
   </ul>
 
@@ -51,14 +52,14 @@
 
   <h2>4. Permisos</h2>
   <ul>
-    <li><strong>Almacenamiento:</strong> conserva la preferencia de activación en el navegador.</li>
+    <li><strong>Almacenamiento:</strong> conserva la preferencia de activación y la última página de lectura de cada PDF en el navegador.</li>
     <li><strong>Pestaña activa:</strong> permite consultar la dirección de la pestaña cuando utilizas la acción para abrir un PDF en Simi.</li>
     <li><strong>Acceso a sitios HTTP y HTTPS:</strong> permite leer las selecciones y mostrar su traducción en los sitios autorizados. El visor solicita permiso para el sitio de origen cuando lo necesita para descargar un PDF. Puedes gestionar el acceso a sitios desde la configuración de extensiones de Chrome.</li>
   </ul>
 
   <h2>5. Conservación y control</h2>
   <p>Las selecciones, traducciones y documentos se utilizan temporalmente durante la sesión. Simi no los escribe en un historial persistente. Puedes cerrar la burbuja o la pestaña del visor y desactivar la traducción automática desde el menú de la extensión.</p>
-  <p>La preferencia de activación permanece en el almacenamiento local de la extensión hasta que se cambia o elimina. Puedes restablecerla eliminando los datos de la extensión o desinstalando Simi. Los permisos concedidos se administran en Chrome.</p>
+  <p>La preferencia de activación y el progreso de lectura permanecen en el almacenamiento local de la extensión. Puedes eliminar ambos datos borrando los datos de la extensión o desinstalando Simi. Los permisos concedidos se administran en Chrome.</p>
   <p>Los modelos descargados, las cachés y otros datos administrados por Chrome o el sistema operativo se gestionan con sus propios controles. Simi no garantiza el borrado inmediato de todas las copias temporales que estos sistemas puedan mantener.</p>
 
   <h2>6. Servicios externos y esta página</h2>
