@@ -1,4 +1,5 @@
 import { test, expect, chromium, type Page } from '@playwright/test';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm, cp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -84,6 +85,41 @@ async function uploadOutline(page: Page) {
   await page.getByLabel('Archivo PDF local').setInputFiles({ name: 'reading-position.pdf', mimeType: 'application/pdf', buffer: pdfOutlineFixture() });
   await expect(page.getByLabel('Estado del documento')).toContainText('Selecciona texto');
 }
+
+test('PDF local: recupera la última página por contenido al volver a abrir el visor', async () => {
+  const f = await setup();
+  try {
+    await upload(f.page);
+    await scrollPdfTo(f.page, 2, 0);
+    await expect(f.page.getByLabel('Página', { exact: true })).toHaveValue('2');
+    const buffer = pdfFixture();
+    const key = `pdfProgress:${createHash('sha256').update(buffer).digest('hex')}`;
+    await expect.poll(() => f.page.evaluate(() => (globalThis as any).chrome.storage.local.get(null)))
+      .toEqual({ [key]: 2 });
+    await f.page.close();
+
+    const reopened = await f.context.newPage();
+    await reopened.goto(`chrome-extension://${f.id}/pdf.html`);
+    const file = reopened.getByLabel('Archivo PDF local');
+    const page = reopened.getByLabel('Página', { exact: true });
+    const renamedPdf = { name: 'renamed.pdf', mimeType: 'application/pdf', buffer };
+    await file.setInputFiles(renamedPdf);
+    await expect(page).toHaveValue('2');
+    await expect(reopened.locator('.pdf-container .page[data-page-number="2"]')).toBeInViewport();
+
+    await file.setInputFiles({ ...renamedPdf, buffer: pdfFixture(false, false, true) });
+    await expect(reopened.getByLabel('Estado del documento')).toContainText('Selecciona texto');
+    await expect(page).toHaveValue('1');
+    await expect(reopened.locator('.pdf-container .page[data-page-number="1"]')).toBeInViewport();
+    expect(await reopened.evaluate(() => (globalThis as any).chrome.storage.local.get(null))).toEqual({ [key]: 2 });
+
+    await reopened.evaluate(key => (globalThis as any).chrome.storage.local.set({ [key]: 999 }), key);
+    await file.setInputFiles(renamedPdf);
+    await expect(reopened.getByLabel('Estado del documento')).toContainText('Selecciona texto');
+    await expect(reopened.locator('.pdf-container .page[data-page-number="1"]')).toBeInViewport();
+    await expect(page).toHaveValue('1');
+  } finally { await f.cleanup(); }
+});
 
 test('PDF local: render, lectura, búsqueda y burbuja automática', async () => {
   const f = await setup();
@@ -418,6 +454,15 @@ test('PDF remoto: popup, sesión, URL sin sufijo, redirección y errores', async
     const invalid = await popup.evaluate(() => (globalThis as any).chrome.runtime.sendMessage({ channel: 'simi-pdf-v1', kind: 'open', url: 'chrome://settings' }));
     expect(invalid.error).toBeTruthy();
     expect(await f.page.evaluate(() => (globalThis as any).chrome.storage.local.get(null))).toEqual({});
+
+    const reading = await open(`${origin}/document`);
+    await reading.getByRole('button', { name: 'Página siguiente' }).click();
+    const key = `pdfProgress:${createHash('sha256').update(pdfFixture()).digest('hex')}`;
+    await expect.poll(() => reading.evaluate(() => (globalThis as any).chrome.storage.local.get(null)))
+      .toEqual({ [key]: 2 });
+    await reading.close();
+    const reopened = await open(`${origin}/redirect`);
+    await expect(reopened.getByLabel('Página', { exact: true })).toHaveValue('2');
   } finally { await f.cleanup(); server.closeAllConnections(); await new Promise<void>(r => server.close(() => r())); }
 });
 

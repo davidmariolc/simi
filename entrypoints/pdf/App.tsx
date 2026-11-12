@@ -18,6 +18,20 @@ type Engine = {
   navigate: (destination: NonNullable<PdfOutlineItem['dest']>) => Promise<void>;
 };
 
+async function readProgress(bytes: ArrayBuffer) {
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const fingerprint = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    const key = `pdfProgress:${fingerprint}`;
+    const fallback = { [key]: 1 };
+    const values = await browser.storage.local.get(fallback).catch(() => fallback);
+    const page = values[key];
+    return { key, page: typeof page === 'number' && Number.isInteger(page) && page > 0 ? page : 1 };
+  } catch {
+    return undefined;
+  }
+}
+
 export function App() {
   const container = useRef<HTMLDivElement>(null), pages = useRef<HTMLDivElement>(null), bubble = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null), engine = useRef<Engine | undefined>(undefined);
@@ -36,6 +50,7 @@ export function App() {
   useEffect(() => {
     let generation = 0, disposed = false;
     let task: pdfjs.PDFDocumentLoadingTask | undefined, fetchAbort: AbortController | undefined;
+    let pendingProgress: Awaited<ReturnType<typeof readProgress>>, progressKey: string | undefined;
     let outlineIndex: OutlineIndex = { entries: [], viewports: new Map() };
     let readingPosition: PdfReadingPosition | undefined, activePath: string | undefined;
     const syncOutline = () => {
@@ -59,8 +74,22 @@ export function App() {
     layout.observe(document.querySelector('.pdf-toolbar')!);
     layout.observe(document.querySelector('.pdf-message')!);
     layout.observe(container.current!);
-    bus.on('pagesinit', () => { viewer.currentScale = 1; });
-    bus.on('pagechanging', ({ pageNumber }: { pageNumber: number }) => { setNumber(pageNumber); setNoText(pageText.get(pageNumber) === false); });
+    bus.on('pagesinit', () => {
+      viewer.currentScale = 1;
+      if (!pendingProgress) return;
+      if (pendingProgress.page > 1 && pendingProgress.page <= viewer.pagesCount) {
+        viewer.currentPageNumber = pendingProgress.page;
+      }
+      progressKey = pendingProgress.key;
+      pendingProgress = undefined;
+    });
+    bus.on('pagechanging', ({ pageNumber }: { pageNumber: number }) => {
+      setNumber(pageNumber);
+      setNoText(pageText.get(pageNumber) === false);
+      if (!disposed && progressKey) {
+        void browser.storage.local.set({ [progressKey]: pageNumber }).catch(() => undefined);
+      }
+    });
     bus.on('scalechanging', ({ scale }: { scale: number }) => setZoom(Math.round(scale * 100)));
     bus.on('updateviewarea', ({ location }: { location: PdfReadingPosition }) => {
       if (disposed) return;
@@ -81,6 +110,7 @@ export function App() {
     async function load(source: File | string) {
       const current = ++generation;
       fetchAbort?.abort(); fetchAbort = new AbortController();
+      pendingProgress = undefined; progressKey = undefined;
       selection.reset(); viewer.setDocument(null); links.setDocument(null); find.setDocument(null!);
       const previous = task; task = undefined; void previous?.destroy();
       pageText.clear(); setReady(false); setNoText(false); setBusy(true); setPermission(undefined); setMatches(''); setQuery('');
@@ -110,6 +140,8 @@ export function App() {
         if (disposed || current !== generation) return;
         const header = new TextDecoder().decode(bytes.slice(0, 1024));
         if (!header.includes('%PDF-')) throw new Error('El contenido no es un PDF válido. Puede ser una página de acceso; abre el original o elige otro archivo.');
+        const progress = await readProgress(bytes);
+        if (disposed || current !== generation) return;
         task = pdfjs.getDocument({ data: bytes,
           cMapUrl: new URL('pdfjs/cmaps/', location.href).href, cMapPacked: true,
           standardFontDataUrl: new URL('pdfjs/standard_fonts/', location.href).href,
@@ -117,6 +149,7 @@ export function App() {
         const loading = task;
         const document = await loading.promise;
         if (disposed || current !== generation) { await loading.destroy(); return; }
+        pendingProgress = progress;
         viewer.setDocument(document); links.setDocument(document); find.setDocument(document);
         setTotal(document.numPages); setReady(true); setStatus('Selecciona texto en inglés para traducirlo.');
         void document.getOutline().then(async items => {

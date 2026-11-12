@@ -77,7 +77,9 @@ El visor incluye páginas, zoom, búsqueda y un panel de **Tabla de contenido**.
 
 El índice resalta la sección correspondiente al inicio visible del documento mientras navegas con scroll, teclado, páginas, búsqueda o sus títulos. También distingue subcapítulos dentro de una misma página cuando sus marcadores tienen posiciones diferentes. Al cambiar de sección, despliega sus antecesores y desplaza únicamente el panel si hace falta mostrar la entrada. Si cierras el panel, permanece cerrado y muestra tu ubicación vigente al abrirlo de nuevo. Puedes contraer las ramas manualmente; se respetan hasta el próximo cambio de sección o reapertura.
 
-El seguimiento depende de los marcadores del PDF: los que solo indican una página se consideran su inicio; los destinos coincidentes se resuelven de forma estable por profundidad y orden del índice. Antes del primer destino no hay una sección marcada. Los marcadores inválidos o externos no impiden leer el documento. La ubicación se mantiene solo durante la sesión del documento, sin guardar historial de lectura.
+El seguimiento depende de los marcadores del PDF: los que solo indican una página se consideran su inicio; los destinos coincidentes se resuelven de forma estable por profundidad y orden del índice. Antes del primer destino no hay una sección marcada. Los marcadores inválidos o externos no impiden leer el documento.
+
+Simi guarda automáticamente la última página al navegar por un PDF. Al volver a abrir el mismo documento en el mismo perfil de Chrome, el visor retoma esa página. Funciona con PDFs locales y de internet porque el dato guardado solo incluye una huella del contenido y el número de página.
 
 Al seleccionar texto, aparece automáticamente la burbuja de traducción. Puede pedir la activación inicial del modelo. Un nuevo renderizado por zoom cierra la selección anterior; selecciona de nuevo. Las páginas escaneadas sin texto y los PDFs que requieren contraseña no ofrecen traducción por selección en esta versión.
 
