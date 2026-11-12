@@ -4,8 +4,16 @@ Las notas describen entregas de Simi. Un bloque preparado no implica que la Rele
 
 ## [Pendiente]
 
+## [0.3.0]
+
+### Funcionalidades
+
+- El visor guarda automáticamente la última página de cada PDF local o de internet y la recupera al volver a abrir el mismo documento en el mismo perfil de Chrome.
+- El índice del PDF sigue la posición de lectura, resalta la sección actual y revela sus antecesores al navegar. Respeta el cierre y la contracción manual del panel.
+
+### Mejoras
+
 - Tabla de contenido más compacta, con texto, sangrías, espacios y controles reducidos.
-- El índice del PDF sigue la posición de lectura, resalta la sección actual y revela sus antecesores al navegar. Respeta el cierre y la contracción manual del panel sin guardar un historial de lectura.
 
 ## [0.2.0] - 2026-10-29
 
